@@ -35,3 +35,17 @@ Temporary Items
 *.icloud
 
 # End of https://www.toptal.com/developers/gitignore/api/macos
+
+
+### Node.js (Full-Stack стек) ###
+**/node_modules/dist/
+build/
+.env
+.env.local
+*.log
+npm-debug.log*
+
+### SQLite (Локальна БД) ###
+odsy.backend/src/data/app.db
+*.db
+*.sqlite
