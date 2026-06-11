@@ -13,29 +13,51 @@ export const globalErrorHandler = (
   res: Response,
   next: NextFunction
 ) => {
-  const msg = err.message || "Internal Server Error";
+  const msg = err.message || "";
 
-  // Дефолтний HTTP-статус (якщо не задано в AppError, то 500)
-  const statusCode = Number(err.statusCode || err.status) || 500;
+  //  default status
+  let statusCode = Number(err.statusCode || err.status) || 500;
 
-  // Дефолтний внутрішній код помилки
-  const code = err.code || "INTERNAL_SERVER_ERROR";
+  let code = err.code || "INTERNAL_SERVER_ERROR";
 
-  // Формуємо відповідь строго за ТЗ (пункт 7.2)
+  // SQLite → HTTP mapping
+  if (msg.includes("UNIQUE constraint failed")) {
+    statusCode = 409;
+    code = "CONFLICT";
+  }
+
+  if (
+    msg.includes("NOT NULL constraint failed") ||
+    msg.includes("CHECK constraint failed")
+  ) {
+    statusCode = 400;
+    code = "BAD_REQUEST";
+  }
+
+  if (msg.includes("no such table")) {
+    statusCode = 500;
+    code = "DB_SCHEMA_ERROR";
+  }
+
+  if (msg.includes("SQLITE_ERROR")) {
+    statusCode = 500;
+    code = "SQL_ERROR";
+  }
+
+  // response
   const errorResponse = {
     error: {
       code,
-      message: msg,
-      // Поле details з'явиться в JSON лише якщо там є помилки валідації
-      ...(err.details && err.details.length ? { details: err.details } : {})
+      message: msg || "Internal Server Error",
+      details: err.details?.length ? err.details : undefined,
     },
   };
 
-  // Логування помилок у консоль сервера
+  // logging
   if (process.env.NODE_ENV !== "production") {
-    console.error("Centralized Error Handler Caught:", err);
+    console.error("ERROR:", err);
   } else {
-    console.error(`[${code}] ${req.method} ${req.originalUrl} - Status: ${statusCode}`);
+    console.error(`[${code}] ${req.method} ${req.originalUrl}`);
   }
 
   return res.status(statusCode).json(errorResponse);

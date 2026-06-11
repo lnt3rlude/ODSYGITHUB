@@ -8,7 +8,7 @@ function bootstrap() {
     app.listen(PORT, () => {
       console.log("==================================================");
       console.log(`Server running on http://localhost:${PORT}`);
-      console.log(`Storage: In-Memory (Operational Memory Only)`);
+      console.log(`Storage: Local Database`);
       console.log("==================================================");
     });
   } catch (err) {

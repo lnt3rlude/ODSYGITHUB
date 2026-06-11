@@ -1,74 +1,117 @@
+import { all, get, run } from "../db/dbClient";
+
 export type Product = {
-    id: string;
-    title: string;
-    description: string;
-    price: number;
-    stock: number;
-    categoryId: string;
-    sales: number;
-}
+        id: string;
+        title: string;
+        description: string;
+        price: number;
+        stock: number;
+        categoryId: string;
+        sales: number;
+    }
 
 export class ProductOdsyRepository {
-    // Наш статичний масив для збереження продуктів в оперативній пам'яті (ОЗУ)
-    private static products: Product[] = [];
 
     async create(product: Product): Promise<Product> {
-        ProductOdsyRepository.products.push(product);
-        return product;
+    await run(`
+        INSERT INTO products
+        (id, title, description, price, stock, categoryId, sales)
+        VALUES (
+        '${product.id}',
+        '${product.title}',
+        '${product.description}',
+        ${product.price},
+        ${product.stock},
+        '${product.categoryId}',
+        ${product.sales}
+        )
+    `);
+
+    return product;
     }
 
-    async findAll(): Promise<Product[]> {
-        return [...ProductOdsyRepository.products];
+    findAll(): Promise<Product[]> {
+    return all<Product>(`SELECT * FROM products`);
     }
 
-    async findById(id: string): Promise<Product | undefined> {
-        return ProductOdsyRepository.products.find(prod => prod.id === id);
+    findById(id: string): Promise<Product | undefined> {
+    return get<Product>(`
+        SELECT * FROM products
+        WHERE id = '${id}'
+    `);
     }
 
     async update(
-        id: string,
-        data: Partial<Product>
+    id: string,
+    data: Partial<Product>
     ): Promise<Product | undefined> {
-        const index = ProductOdsyRepository.products.findIndex(prod => prod.id === id);
-        
-        if (index === -1) return undefined;
 
-        // Безпечно зливаємо змінені поля з існуючим об'єктом
-        ProductOdsyRepository.products[index] = {
-            ...ProductOdsyRepository.products[index],
-            ...data,
-            id // Забороняємо змінювати ID під час оновлення
-        };
+    const fields: string[] = [];
 
-        return ProductOdsyRepository.products[index];
+    if (data.title !== undefined) {
+        fields.push(`title = '${data.title}'`);
+    }
+
+    if (data.description !== undefined) {
+        fields.push(`description = '${data.description}'`);
+    }
+
+    if (data.price !== undefined) {
+        fields.push(`price = ${data.price}`);
+    }
+
+    if (data.stock !== undefined) {
+        fields.push(`stock = ${data.stock}`);
+    }
+
+    if (data.categoryId !== undefined) {
+        fields.push(`categoryId = '${data.categoryId}'`);
+    }
+
+    if (data.sales !== undefined) {
+        fields.push(`sales = ${data.sales}`);
+    }
+
+    if (fields.length === 0) return undefined;
+
+    const result = await run(`
+        UPDATE products
+        SET ${fields.join(", ")}
+        WHERE id = '${id}'
+    `);
+
+    if (result.changes === 0) return undefined;
+
+    return this.findById(id);
     }
 
     async delete(id: string): Promise<boolean> {
-        const index = ProductOdsyRepository.products.findIndex(prod => prod.id === id);
-        
-        if (index === -1) return false;
+    const result = await run(`
+        DELETE FROM products
+        WHERE id = '${id}'
+    `);
 
-        ProductOdsyRepository.products.splice(index, 1);
-        return true;
+    return result.changes > 0;
     }
 
-    // Пошук за назвою (реєстронезалежний, як LOWER + LIKE %...%)
-    async findByTitle(title: string): Promise<Product[]> {
-        const lowerTitle = title.toLowerCase();
-        return ProductOdsyRepository.products.filter(prod => 
-            prod.title.toLowerCase().includes(lowerTitle)
-        );
+    findByTitle(title: string) {
+    return all<Product>(`
+        SELECT * FROM products
+        WHERE LOWER(title) LIKE LOWER('%${title}%')
+    `);
     }
 
-    // Фільтрація за категорією
-    async findByCategory(categoryId: string): Promise<Product[]> {
-        return ProductOdsyRepository.products.filter(prod => prod.categoryId === categoryId);
+    findByCategory(categoryId: string) {
+    return all<Product>(`
+        SELECT * FROM products
+        WHERE categoryId = '${categoryId}'
+    `);
     }
 
-    // Фільтрація за діапазоном цін (BETWEEN min AND max)
-    async findByPriceRange(min: number, max: number): Promise<Product[]> {
-        return ProductOdsyRepository.products.filter(prod => 
-            prod.price >= min && prod.price <= max
-        );
+    findByPriceRange(min: number, max: number) {
+    return all<Product>(`
+        SELECT * FROM products
+        WHERE price BETWEEN ${min} AND ${max}
+    `);
     }
 }

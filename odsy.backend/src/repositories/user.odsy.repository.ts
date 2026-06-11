@@ -1,3 +1,5 @@
+import { all, get, run } from "../db/dbClient";
+
 type User = {
     id: string;
     userName: string;
@@ -5,62 +7,80 @@ type User = {
 };
 
 export class UserOdsyRepository {
-    // Статичний масив для збереження користувачів в ОЗУ
-    private static users: User[] = [];
 
     // --- СТВОРЕННЯ КОРИСТУВАЧА ---
     async create(user: User): Promise<User> {
-        const cleanUser: User = {
-            id: user.id.trim(),
-            userName: user.userName.trim(),
-            email: user.email.trim()
-        };
-
-        UserOdsyRepository.users.push(cleanUser);
-        return cleanUser;
+        await run(`
+            INSERT INTO users (id, userName, email)
+            VALUES (
+                '${user.id.trim()}',
+                '${user.userName.trim()}',
+                '${user.email.trim()}'
+            )
+        `);
+        return user;
     }
 
     // --- ПОШУК УСІХ ---
-    async findAll(): Promise<User[]> {
-        return [...UserOdsyRepository.users];
+    findAll(): Promise<User[]> {
+        return all<User>(`SELECT * FROM users`);
     }
 
     // --- ПОШУК ПО ID ---
     async findById(id: string): Promise<User | undefined> {
-        const cleanId = id.trim();
-        return UserOdsyRepository.users.find(user => user.id === cleanId);
+        // Використовуємо TRIM, щоб убезпечити пошук від випадкових пробілів у базі
+        return get<User>(`
+            SELECT * FROM users
+            WHERE TRIM(id) = '${id.trim()}'
+        `);
     }
 
     // --- ОНОВЛЕННЯ КОРИСТУВАЧА ---
     async update(id: string, data: Partial<User>): Promise<User | undefined> {
-        const cleanId = id.trim();
-        const index = UserOdsyRepository.users.findIndex(user => user.id === cleanId);
+        const fields: string[] = [];
 
-        if (index === -1) return undefined;
+        if (data.userName !== undefined) {
+            fields.push(`userName = '${data.userName.trim()}'`);
+        }
 
-        // Збираємо оновлені поля та чистимо їх від пробілів
-        const updatedFields: Partial<User> = {};
-        if (data.userName !== undefined) updatedFields.userName = data.userName.trim();
-        if (data.email !== undefined) updatedFields.email = data.email.trim();
+        if (data.email !== undefined) {
+            fields.push(`email = '${data.email.trim()}'`);
+        }
 
-        UserOdsyRepository.users[index] = {
-            ...UserOdsyRepository.users[index],
-            ...updatedFields,
-            id: cleanId // Залишаємо оригінальний ID незмінним
-        };
+        if (fields.length === 0) return undefined;
 
-        return UserOdsyRepository.users[index];
+        // Крок 1: Перевіряємо, чи існує користувач перед оновленням
+        const user = await this.findById(id);
+        if (!user) return undefined;
+
+        // Крок 2: Оновлюємо дані
+        await run(`
+            UPDATE users
+            SET ${fields.join(", ")}
+            WHERE TRIM(id) = '${id.trim()}'
+        `);
+
+        // Крок 3: Повертаємо вже оновлений об'єкт з бази
+        return this.findById(id);
     }
 
     // --- НАДІЙНЕ ВИДАЛЕННЯ ---
     async delete(id: string): Promise<boolean> {
         const cleanId = id.trim();
-        const index = UserOdsyRepository.users.findIndex(user => user.id === cleanId);
 
-        if (index === -1) return false; // Якщо немає — сервіс видасть 404
+        // Крок 1: Перевіряємо, чи взагалі є такий користувач у базі
+        const user = await this.findById(cleanId);
+        if (!user) {
+            return false; // Якщо немає — сервіс віддасть чесну 404 помилку
+        }
 
-        // Видаляємо користувача з оперативної пам'яті
-        UserOdsyRepository.users.splice(index, 1);
+        // Крок 2: Якщо він є — видаляємо його
+        await run(`
+            DELETE FROM users
+            WHERE TRIM(id) = '${cleanId}'
+        `);
+
+        // Крок 3: Повертаємо true, бо видалення точно пройшло успішно
         return true;
     }
 }

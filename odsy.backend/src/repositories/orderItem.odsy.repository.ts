@@ -1,3 +1,5 @@
+import { all, get, run } from "../db/dbClient";
+
 type OrderItem = {
     id: string;
     orderId: string; 
@@ -6,61 +8,73 @@ type OrderItem = {
 };
 
 export class OrderItemOdsyRepository {
-    // Наш статичний масив для збереження позицій замовлень в ОЗУ
-    private static orderItems: OrderItem[] = [];
 
     async create(orderitem: OrderItem): Promise<OrderItem> {
-        const cleanItem: OrderItem = {
-            id: orderitem.id.trim(),
-            orderId: orderitem.orderId.trim(),
-            productId: orderitem.productId.trim(),
-            quantity: orderitem.quantity
-        };
-
-        OrderItemOdsyRepository.orderItems.push(cleanItem);
-        return cleanItem;
+        await run(`
+            INSERT INTO orderitems (id, orderId, productId, quantity)
+            VALUES (
+                '${orderitem.id.trim()}',
+                '${orderitem.orderId.trim()}',
+                '${orderitem.productId.trim()}',
+                ${orderitem.quantity}
+            )
+        `);
+        return orderitem;
     }
 
-    async findAll(): Promise<OrderItem[]> {
-        // Повертаємо копію масиву
-        return [...OrderItemOdsyRepository.orderItems];
+    findAll(): Promise<OrderItem[]> {
+        return all<OrderItem>(`SELECT * FROM orderitems`);
     }
 
     async findById(id: string): Promise<OrderItem | undefined> {
-        const cleanId = id.trim();
-        // Шукаємо позицію в масиві
-        return OrderItemOdsyRepository.orderItems.find(item => item.id === cleanId);
+        return get<OrderItem>(`
+            SELECT * FROM orderitems
+            WHERE TRIM(id) = '${id.trim()}'
+        `);
     }
 
     async update(id: string, data: Partial<OrderItem>): Promise<OrderItem | undefined> {
-        const cleanId = id.trim();
-        const index = OrderItemOdsyRepository.orderItems.findIndex(item => item.id === cleanId);
+        const fields: string[] = [];
 
-        if (index === -1) return undefined;
+        if (data.orderId !== undefined) {
+            fields.push(`orderId = '${data.orderId.trim()}'`);
+        }
 
-        // Безпечно збираємо оновлені поля
-        const updatedFields: Partial<OrderItem> = {};
-        if (data.orderId !== undefined) updatedFields.orderId = data.orderId.trim();
-        if (data.productId !== undefined) updatedFields.productId = data.productId.trim();
-        if (data.quantity !== undefined) updatedFields.quantity = data.quantity;
+        if (data.productId !== undefined) {
+            fields.push(`productId = '${data.productId.trim()}'`);
+        }
 
-        OrderItemOdsyRepository.orderItems[index] = {
-            ...OrderItemOdsyRepository.orderItems[index],
-            ...updatedFields,
-            id: cleanId // Ідентифікатор залишається незмінним
-        };
+        if (data.quantity !== undefined) {
+            fields.push(`quantity = ${data.quantity}`);
+        }
 
-        return OrderItemOdsyRepository.orderItems[index];
+        if (fields.length === 0) return undefined;
+
+        const item = await this.findById(id);
+        if (!item) return undefined;
+
+        await run(`
+            UPDATE orderitems
+            SET ${fields.join(", ")}
+            WHERE TRIM(id) = '${id.trim()}'
+        `);
+
+        return this.findById(id);
     }
 
     async delete(id: string): Promise<boolean> {
         const cleanId = id.trim();
-        const index = OrderItemOdsyRepository.orderItems.findIndex(item => item.id === cleanId);
 
-        if (index === -1) return false;
+        const item = await this.findById(cleanId);
+        if (!item) {
+            return false;
+        }
 
-        // Видаляємо елемент із масиву
-        OrderItemOdsyRepository.orderItems.splice(index, 1);
+        await run(`
+            DELETE FROM orderitems
+            WHERE TRIM(id) = '${cleanId}'
+        `);
+
         return true;
     }
 }
