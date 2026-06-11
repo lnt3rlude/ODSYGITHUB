@@ -9,6 +9,7 @@ import { UserOdsyRepository } from "../repositories/user.odsy.repository";
 
 import { AppError } from "../errors/AppError";
 
+import { getTop5MVP } from "../3lab"
 
 type User = {
         id: string;
@@ -74,6 +75,10 @@ export class UserOdsyService {
             );
         }
     }
+
+    async getTop5MVP() {
+        return getTop5MVP();
+  } 
 }
 
 // Функція (Що отримує): Що віддає {

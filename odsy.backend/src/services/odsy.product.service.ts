@@ -80,6 +80,8 @@ export class ProductOdsyService {
         }
     }
 
+    // Додаткові можливості
+
     async findByTitle(title: string) {
         return await this.repo.findByTitle(title);
     }
@@ -90,6 +92,32 @@ export class ProductOdsyService {
 
     async findByPriceRange(min: number, max: number) {
         return await this.repo.findByPriceRange(min, max);
+    }
+
+    // Три самих популярних моделей в кожній категорії як вибірку зробити логіка сервіс
+
+    async findTopProductsByCategory() {
+        const products = await this.repo.findAll();
+
+        const grouped: Record<string, Product[]> = {};
+
+        for (const product of products) {
+            if (!grouped[product.categoryId]) {
+                grouped[product.categoryId] = [];
+            }
+
+            grouped[product.categoryId].push(product);
+        }
+
+        const result: Record<string, Product[]> = {};
+
+        for (const categoryId in grouped) {
+            result[categoryId] = grouped[categoryId]
+                .sort((a, b) => b.sales - a.sales)
+                .slice(0, 3);
+        }
+
+        return result;
     }
 }
 

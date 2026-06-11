@@ -65,4 +65,9 @@ export class UserOdsyController {
 
     return res.sendStatus(204);
     };
+
+    getTop5MVP = async (req: Request, res: Response) => {
+        const data = await this.userService.getTop5MVP();
+        return res.json(data);
+    }
 }

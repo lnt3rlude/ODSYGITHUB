@@ -13,6 +13,8 @@ router.post("/", userController.createUserOdsy);
 
 router.get("/", userController.getAllUsersOdsy);
 
+router.get("/top5-mvp", userController.getTop5MVP);
+
 router.get("/:id", userController.getUserOdsyById);
 
 router.patch("/:id", userController.updateUserOdsy);

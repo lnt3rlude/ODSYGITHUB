@@ -14,3 +14,4 @@ export interface UpdateUserOdsyDto {
   email?: string;
 }
 
+// "?" - Опціональні поля

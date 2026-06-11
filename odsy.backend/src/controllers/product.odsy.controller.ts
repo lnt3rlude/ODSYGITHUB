@@ -94,4 +94,9 @@ export class ProductOdsyController {
 
         return res.status(200).json(result);
     };
+
+    findTopProductsByCategory = (req: Request, res: Response) => {
+        const result = this.productService.findTopProductsByCategory();
+        return res.status(200).json(result);
+    };
 }
